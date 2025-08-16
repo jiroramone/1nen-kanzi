@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小学1年生の漢字ゲーム</title>
+    <!-- Tailwind CSSの読み込み -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Noto+Sans+JP:wght@400;700&display=swap');
+        body {
+            font-family: 'Noto Sans JP', 'Inter', sans-serif;
+            background-color: #f0f4f8;
+            color: #334155;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+
+        /* 質問カードのスタイル */
+        .question-card {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 1.5rem;
+            background-color: #e0f2fe; /* Light blue */
+            border: 2px solid #93c5fd;
+            color: #1e293b;
+            font-size: 5rem;
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            height: 12rem;
+            width: 12rem;
+            margin: 0 auto 2rem;
+        }
+
+        /* 選択肢カードのスタイル */
+        .option-card {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 1rem;
+            font-size: 1.25rem;
+            font-weight: bold;
+            background-color: #fff7ed; /* Light orange */
+            border: 2px solid #fed7aa;
+            color: #1e293b;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease-in-out;
+            cursor: pointer;
+            padding: 1rem;
+            min-height: 4rem;
+        }
+
+        .option-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        /* 正解・不正解時のスタイル */
+        .option-card.correct {
+            border-color: #10b981; /* Green border */
+            background-color: #d1fae5; /* Lighter green background */
+            transform: scale(1.05);
+            pointer-events: none; /* クリック不可に */
+        }
+        .option-card.incorrect {
+            border-color: #ef4444; /* Red border */
+            background-color: #fee2e2; /* Lighter red background */
+            animation: shake 0.5s;
+        }
+
+        /* メッセージボックスのスタイル */
+        .message-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(255, 255, 255, 0.95);
+            padding: 2rem;
+            border-radius: 1.5rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            text-align: center;
+            z-index: 100;
+        }
+
+        /* 画面サイズに応じた調整 */
+        @media (min-width: 640px) {
+            .option-card {
+                font-size: 1.5rem;
+            }
+        }
+        @keyframes shake {
+            0% { transform: translateX(0); }
+            20% { transform: translateX(-5px); }
+            40% { transform: translateX(5px); }
+            60% { transform: translateX(-5px); }
+            80% { transform: translateX(5px); }
+            100% { transform: translateX(0); }
+        }
+        .result-list {
+            text-align: left;
+            margin: 1rem auto;
+            max-width: 20rem;
+            list-style: none;
+            padding: 0;
+        }
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .correct-text {
+            color: #10b981;
+            font-weight: bold;
+        }
+        .incorrect-text {
+            color: #ef4444;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center p-4">
+
+    <div id="game-container" class="w-full max-w-4xl bg-white p-6 rounded-3xl shadow-2xl text-center">
+        <h1 class="text-4xl sm:text-5xl font-extrabold text-blue-800 mb-2">漢字マスター</h1>
+        
+        <!-- モード選択UI -->
+        <div id="mode-selection-container" class="mb-6 flex justify-center gap-4">
+            <button id="onyomi-btn" class="px-4 py-2 rounded-full border-2 border-blue-600 font-bold transition-colors bg-blue-600 text-white">音読みモード</button>
+            <button id="kunyomi-btn" class="px-4 py-2 rounded-full border-2 border-gray-400 font-bold transition-colors text-gray-700">訓読みモード</button>
+        </div>
+
+        <p id="prompt-text" class="text-gray-600 mb-6 text-lg sm:text-xl">この漢字の読み方を選んでね！</p>
+        
+        <div id="kanji-question" class="question-card">
+            <!-- 質問の漢字がここに表示されます -->
+        </div>
+
+        <div class="flex justify-around items-center text-xl sm:text-2xl font-bold text-gray-700 mb-6">
+            <div>正解数: <span id="score">0</span></div>
+            <div>時間: <span id="timer">0</span>秒</div>
+        </div>
+
+        <div id="reading-options" class="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
+            <!-- 選択肢がここに動的に追加されます -->
+        </div>
+
+        <button id="start-button" class="mt-8 px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-full shadow-lg transition-transform transform hover:scale-105">
+            ゲームスタート
+        </button>
+    </div>
+
+    <script>
+        // ゲームの状態を管理する変数
+        let kanjiQuestionEl = document.getElementById('kanji-question');
+        let readingOptionsEl = document.getElementById('reading-options');
+        let scoreEl = document.getElementById('score');
+        let timerEl = document.getElementById('timer');
+        let startButton = document.getElementById('start-button');
+        let promptTextEl = document.getElementById('prompt-text');
+        
+        let onyomiBtn = document.getElementById('onyomi-btn');
+        let kunyomiBtn = document.getElementById('kunyomi-btn');
+        let modeSelectionContainer = document.getElementById('mode-selection-container');
+
+        let timerId;
+        let seconds = 0;
+        let score = 0;
+        let questionCount = 0;
+        const maxQuestions = 10;
+        let currentKanji = null;
+        let shuffledKanjiData = [];
+        let gameResults = [];
+        let currentMode = 'onyomi'; // デフォルトは音読み
+
+        // 小学1年生で習う漢字のデータに音読みと訓読みを追加
+        const kanjiData = [
+            { kanji: '一', onyomi: 'いち', kunyomi: 'ひと' }, { kanji: '二', onyomi: 'に', kunyomi: 'ふた' },
+            { kanji: '三', onyomi: 'さん', kunyomi: 'みっ' }, { kanji: '人', onyomi: 'じん', kunyomi: 'ひと' },
+            { kanji: '力', onyomi: 'りょく', kunyomi: 'ちから' }, { kanji: '日', onyomi: 'にち', kunyomi: 'ひ' },
+            { kanji: '月', onyomi: 'げつ', kunyomi: 'つき' }, { kanji: '火', onyomi: 'か', kunyomi: 'ひ' },
+            { kanji: '水', onyomi: 'すい', kunyomi: 'みず' }, { kanji: '金', onyomi: 'きん', kunyomi: 'かね' },
+            { kanji: '土', onyomi: 'ど', kunyomi: 'つち' }, { kanji: '木', onyomi: 'もく', kunyomi: 'き' },
+            { kanji: '川', onyomi: 'せん', kunyomi: 'かわ' }, { kanji: '山', onyomi: 'さん', kunyomi: 'やま' },
+            { kanji: '百', onyomi: 'ひゃく' }, { kanji: '千', onyomi: 'せん' },
+            { kanji: '円', onyomi: 'えん' }, { kanji: '空', onyomi: 'くう', kunyomi: 'そら' },
+            { kanji: '田', onyomi: 'でん', kunyomi: 'た' }, { kanji: '花', onyomi: 'か', kunyomi: 'はな' },
+            { kanji: '虫', onyomi: 'ちゅう', kunyomi: 'むし' }, { kanji: '犬', onyomi: 'けん', kunyomi: 'いぬ' },
+            { kanji: '竹', onyomi: 'ちく', kunyomi: 'たけ' }, { kanji: '石', onyomi: 'せき', kunyomi: 'いし' },
+            { kanji: '玉', onyomi: 'ぎょく', kunyomi: 'たま' }, { kanji: '王', onyomi: 'おう' },
+            { kanji: '町', onyomi: 'ちょう', kunyomi: 'まち' }, { kanji: '白', onyomi: 'はく', kunyomi: 'しろ' },
+        ];
+
+        // ゲームの初期化
+        const initGame = () => {
+            score = 0;
+            scoreEl.textContent = 0;
+            questionCount = 0;
+            seconds = 0;
+            timerEl.textContent = 0;
+            clearInterval(timerId);
+            startButton.style.display = 'none';
+            gameResults = []; // リザルトをリセット
+            
+            // ゲーム開始時にモード選択画面を非表示にする
+            modeSelectionContainer.style.display = 'none';
+
+            // 選択されたモードに合わせた問題リストを作成
+            const filteredKanji = kanjiData.filter(k => k[currentMode]);
+            const fullKanjiSet = [...filteredKanji].sort(() => Math.random() - 0.5);
+            shuffledKanjiData = fullKanjiSet.slice(0, maxQuestions);
+
+            nextQuestion();
+            startTimer();
+        };
+
+        // 次の質問を表示
+        const nextQuestion = () => {
+            if (questionCount >= shuffledKanjiData.length) {
+                endGame();
+                return;
+            }
+
+            currentKanji = shuffledKanjiData[questionCount];
+            kanjiQuestionEl.textContent = currentKanji.kanji;
+            
+            // 選択肢を生成
+            const options = getShuffledOptions(currentKanji[currentMode]);
+            
+            readingOptionsEl.innerHTML = '';
+            options.forEach(option => {
+                const optionCard = document.createElement('div');
+                optionCard.classList.add('option-card', 'select-none');
+                optionCard.textContent = option;
+                optionCard.dataset.reading = option;
+                optionCard.addEventListener('click', handleAnswerClick);
+                readingOptionsEl.appendChild(optionCard);
+            });
+            
+            questionCount++;
+        };
+
+        // 選択肢をシャッフルして取得
+        const getShuffledOptions = (correctReading) => {
+            const options = new Set();
+            options.add(correctReading);
+
+            // 誤った選択肢を追加（合計10個）
+            const incorrectReadings = kanjiData.flatMap(item => {
+                // 現在のモードに合わせた読み方のみを抽出
+                const reading = item[currentMode];
+                return reading ? [reading] : [];
+            }).filter(r => r !== correctReading);
+
+            while (options.size < 10 && incorrectReadings.length > 0) {
+                const randomIndex = Math.floor(Math.random() * incorrectReadings.length);
+                options.add(incorrectReadings.splice(randomIndex, 1)[0]);
+            }
+
+            return Array.from(options).sort(() => Math.random() - 0.5);
+        };
+        
+        // 答えのクリック処理
+        function handleAnswerClick(event) {
+            const clickedOption = event.currentTarget;
+            
+            if (clickedOption.dataset.reading === currentKanji[currentMode]) {
+                score++;
+                scoreEl.textContent = score;
+                clickedOption.classList.add('correct');
+                gameResults.push({ kanji: currentKanji.kanji, reading: currentKanji[currentMode], isCorrect: true, mode: currentMode });
+                
+                setTimeout(() => {
+                    nextQuestion();
+                }, 1000); 
+            } else {
+                clickedOption.classList.add('incorrect');
+                gameResults.push({ kanji: currentKanji.kanji, reading: currentKanji[currentMode], isCorrect: false, mode: currentMode });
+                setTimeout(() => {
+                    clickedOption.classList.remove('incorrect');
+                }, 500); 
+            }
+        }
+
+        // ゲーム終了
+        const endGame = () => {
+            clearInterval(timerId);
+            const wrongAnswers = gameResults.filter(r => !r.isCorrect);
+            const resultSummary = `
+                <p class="text-xl sm:text-2xl font-bold mb-4">ゲーム終了！</p>
+                <p class="text-lg sm:text-xl mb-2">${shuffledKanjiData.length}問中、${score}問正解したよ！</p>
+                <p class="text-lg sm:text-xl mb-4">かかった時間は${seconds}秒だよ！</p>
+                ${wrongAnswers.length > 0 ? `
+                    <p class="text-lg font-bold text-red-600">間違えた問題 (${currentMode === 'onyomi' ? '音読み' : '訓読み'})</p>
+                    <ul class="result-list">
+                        ${wrongAnswers.map(r => `<li class="result-item"><span class="font-bold">${r.kanji}</span><span>→</span><span class="incorrect-text">${r.reading}</span></li>`).join('')}
+                    </ul>
+                    <button id="review-button" class="mt-4 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-full font-bold shadow-md">
+                        間違えた問題だけ復習する
+                    </button>
+                ` : '<p class="text-lg font-bold text-green-600">全問正解！すごい！</p>'}
+            `;
+            showMessage(resultSummary);
+        };
+
+        // メッセージボックスの表示
+        const showMessage = (htmlContent) => {
+            const messageBox = document.createElement('div');
+            messageBox.classList.add('message-box');
+            messageBox.innerHTML = `
+                ${htmlContent}
+                <button id="restart-button" class="mt-4 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full font-bold shadow-md">
+                    もう一度最初から遊ぶ
+                </button>
+            `;
+            document.body.appendChild(messageBox);
+
+            document.getElementById('restart-button').addEventListener('click', () => {
+                document.body.removeChild(messageBox);
+                // 再度ゲームを始める際にモード選択画面を表示する
+                modeSelectionContainer.style.display = 'flex';
+                // スタートボタンも再表示
+                startButton.style.display = 'block';
+            });
+
+            const reviewButton = document.getElementById('review-button');
+            if (reviewButton) {
+                reviewButton.addEventListener('click', () => {
+                    document.body.removeChild(messageBox);
+                    reviewWrongAnswers();
+                });
+            }
+        };
+
+        // 間違えた問題のみを復習
+        const reviewWrongAnswers = () => {
+            const wrongAnswers = gameResults.filter(r => !r.isCorrect);
+            if (wrongAnswers.length > 0) {
+                shuffledKanjiData = wrongAnswers.map(r => {
+                    return kanjiData.find(k => k.kanji === r.kanji);
+                });
+                score = 0;
+                scoreEl.textContent = 0;
+                questionCount = 0;
+                seconds = 0;
+                timerEl.textContent = 0;
+                clearInterval(timerId);
+                
+                nextQuestion();
+                startTimer();
+            } else {
+                showMessage(`間違えた問題はないよ！<br>最初からまた遊んでみよう！`);
+            }
+        };
+
+        // タイマーの開始
+        const startTimer = () => {
+            seconds = 0;
+            timerEl.textContent = seconds;
+            timerId = setInterval(() => {
+                seconds++;
+                timerEl.textContent = seconds;
+            }, 1000);
+        };
+
+        // モード選択UIのイベントリスナー
+        const setMode = (mode) => {
+            currentMode = mode;
+            if (mode === 'onyomi') {
+                onyomiBtn.classList.add('bg-blue-600', 'text-white');
+                onyomiBtn.classList.remove('bg-transparent', 'text-gray-700', 'border-gray-400');
+                kunyomiBtn.classList.remove('bg-blue-600', 'text-white');
+                kunyomiBtn.classList.add('bg-transparent', 'text-gray-700', 'border-gray-400');
+                promptTextEl.textContent = 'この漢字の音読みを選んでね！';
+            } else {
+                kunyomiBtn.classList.add('bg-blue-600', 'text-white');
+                kunyomiBtn.classList.remove('bg-transparent', 'text-gray-700', 'border-gray-400');
+                onyomiBtn.classList.remove('bg-blue-600', 'text-white');
+                onyomiBtn.classList.add('bg-transparent', 'text-gray-700', 'border-gray-400');
+                promptTextEl.textContent = 'この漢字の訓読みを選んでね！';
+            }
+        };
+
+        onyomiBtn.addEventListener('click', () => setMode('onyomi'));
+        kunyomiBtn.addEventListener('click', () => setMode('kunyomi'));
+
+        // ゲームスタートボタンのイベントリスナー
+        startButton.addEventListener('click', initGame);
+
+        // 初期モード設定
+        setMode('onyomi');
+
+    </script>
+
+</body>
+</html>
